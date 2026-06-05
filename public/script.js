@@ -1,52 +1,80 @@
 const socket = io();
-let currentUsername = "";
+let currentUser = null; // Sẽ chứa: { phone, name }
 let cart = [];
 let dbProducts = [];
-let chatReceiver = ""; // Biến vô cùng quan trọng: Nhớ xem mình đang chat với AI
+let chatReceiverPhone = ""; 
+let chatReceiverName = "";
 
 window.onload = async function() {
     try {
         const response = await fetch('/api/products');
         dbProducts = await response.json();
         renderProducts();
-    } catch (error) {
-        console.error("Lỗi:", error);
-    }
+    } catch (error) { console.error(error); }
     
-    const savedName = localStorage.getItem("ufm_username");
-    if (savedName) {
-        currentUsername = savedName;
-        document.getElementById("user-display").innerText = "🙋 " + currentUsername;
-        document.getElementById("login-modal").style.display = "none";
-        
-        // Báo cho Server biết mình vừa online để Server tạo phòng chat riêng
-        socket.emit('user_login', currentUsername);
+    // Kiểm tra phiên đăng nhập
+    const savedUser = localStorage.getItem("ufm_user");
+    if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        setupUserInterface();
     }
 };
 
-function handleLogin() {
-    const nameInput = document.getElementById("username-input").value.trim();
-    const mssvInput = document.getElementById("mssv-input").value.trim();
+// ---------------- HỆ THỐNG TÀI KHOẢN ---------------- //
+function toggleAuth(type) {
+    document.getElementById('login-section').style.display = type === 'login' ? 'block' : 'none';
+    document.getElementById('register-section').style.display = type === 'register' ? 'block' : 'none';
+}
 
-    if (!nameInput || !mssvInput) {
-        alert("Vui lòng nhập Tên và MSSV!");
-        return;
+async function handleRegister() {
+    const name = document.getElementById("reg-name").value.trim();
+    const phone = document.getElementById("reg-phone").value.trim();
+    const password = document.getElementById("reg-password").value.trim();
+
+    if (!name || !phone || !password) return alert("Vui lòng nhập đủ thông tin!");
+
+    const res = await fetch('/api/register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, phone, password })
+    });
+    const data = await res.json();
+    alert(data.message);
+    if (data.success) toggleAuth('login'); // Chuyển qua tab đăng nhập
+}
+
+async function handleLogin() {
+    const phone = document.getElementById("login-phone").value.trim();
+    const password = document.getElementById("login-password").value.trim();
+
+    if (!phone || !password) return alert("Vui lòng nhập SĐT và Mật khẩu!");
+
+    const res = await fetch('/api/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, password })
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+        currentUser = data.user;
+        localStorage.setItem("ufm_user", JSON.stringify(currentUser));
+        setupUserInterface();
+    } else {
+        alert(data.message);
     }
+}
 
-    currentUsername = `${nameInput} (MSSV: ${mssvInput})`;
-    localStorage.setItem("ufm_username", currentUsername);
-    document.getElementById("user-display").innerText = "🙋 " + currentUsername;
-    document.getElementById("login-modal").style.display = "none";
-
-    // Báo cho Server biết mình vừa online
-    socket.emit('user_login', currentUsername);
+function setupUserInterface() {
+    document.getElementById("user-display").innerText = "🙋 " + currentUser.name;
+    document.getElementById("auth-modal").style.display = "none";
+    socket.emit('user_login', currentUser.phone); // Đăng ký sđt với Server để nhận tin nhắn
 }
 
 function handleLogout() {
-    localStorage.removeItem("ufm_username");
+    localStorage.removeItem("ufm_user");
     location.reload();
 }
 
+// ---------------- GIAO DIỆN & SẢN PHẨM ---------------- //
 function renderProducts(productsToRender = dbProducts) {
     const taiLieuGrid = document.getElementById("tai-lieu-grid");
     const troGrid = document.getElementById("tro-grid");
@@ -59,28 +87,30 @@ function renderProducts(productsToRender = dbProducts) {
     productsToRender.forEach(p => {
         const card = document.createElement("div");
         card.className = "product-card";
-        // Bổ sung dòng hiển thị tên người bán (p.seller)
         card.innerHTML = `
             <img src="${p.image}" alt="${p.name}">
             <h3>${p.name}</h3>
-            <p style="font-size: 12px; color: #666; margin: 0 0 10px 0;">👤 Bán bởi: <b>${p.seller}</b></p>
+            <p style="font-size: 12px; color: #666; margin: 0 0 10px 0;">👤 Bán bởi: <b>${p.sellerName}</b></p>
             <div class="price">${p.price.toLocaleString()}đ</div>
             <button onclick="addToCart(${p.id})">Thêm vào đơn</button>
         `;
-
         if (p.category === 'tai-lieu' && taiLieuGrid) taiLieuGrid.appendChild(card);
         else if (p.category === 'tro' && troGrid) troGrid.appendChild(card);
         else if (p.category === 'viec-lam' && viecLamGrid) viecLamGrid.appendChild(card);
     });
 }
 
-// ---------------- CÁC HÀM GIỎ HÀNG ---------------- //
+// ---------------- GIỎ HÀNG ---------------- //
 function addToCart(id) {
+    if (!currentUser) return alert("Vui lòng đăng nhập để mua hàng!");
+    
     const product = dbProducts.find(p => p.id === id);
-    // Để đơn giản cho MVP: Ép người mua chỉ được mua của 1 người cùng lúc để chat không bị loạn
-    if (cart.length > 0 && cart[0].seller !== product.seller) {
-        alert("⚠️ Bạn đang có sản phẩm của người khác trong giỏ. Vui lòng thanh toán hoặc xóa giỏ hàng trước khi mua của người mới!");
-        return;
+    if (product.sellerPhone === currentUser.phone) {
+        return alert("Bạn không thể tự mua hàng của chính mình!");
+    }
+
+    if (cart.length > 0 && cart[0].sellerPhone !== product.sellerPhone) {
+        return alert("⚠️ Giỏ hàng chỉ chứa sản phẩm của 1 người bán cùng lúc để dễ chat!");
     }
 
     const exist = cart.find(item => item.id === id);
@@ -100,9 +130,8 @@ function changeQuantity(id, amount) {
 function removeFromCart(id) {
     cart = cart.filter(item => item.id !== id);
     updateCartUI();
-    // Nếu xóa hết giỏ hàng thì reset người nhận chat
     if(cart.length === 0) {
-        chatReceiver = "";
+        chatReceiverPhone = ""; chatReceiverName = "";
         document.querySelector('.chat-container div').innerText = "💬 Khung Chat Riêng Tư";
     }
 }
@@ -144,17 +173,13 @@ function updateCartUI() {
     totalPrice.innerText = total.toLocaleString() + "đ";
 }
 
-// ---------------- CHAT & KẾT NỐI ---------------- //
+// ---------------- HỆ THỐNG CHAT ĐỊNH DANH SĐT ---------------- //
 function sendCartToChat() {
-    if (cart.length === 0) {
-        alert("Giỏ hàng đang trống!"); return;
-    }
+    if (cart.length === 0) return alert("Giỏ hàng đang trống!");
     
-    // KHÓA MỤC TIÊU: Lấy tên người bán từ món hàng đầu tiên trong giỏ
-    chatReceiver = cart[0].seller;
-    
-    // Đổi tiêu đề khung chat để khách biết mình đang chat với ai
-    document.querySelector('.chat-container div').innerHTML = `💬 Đang chat với: <b>${chatReceiver}</b>`;
+    chatReceiverPhone = cart[0].sellerPhone;
+    chatReceiverName = cart[0].sellerName;
+    document.querySelector('.chat-container div').innerHTML = `💬 Đang chat với: <b>${chatReceiverName}</b>`;
 
     let orderText = `Chào bạn, mình muốn trao đổi về đơn hàng này:\n`;
     let total = 0;
@@ -163,7 +188,6 @@ function sendCartToChat() {
         total += item.price * item.quantity;
     });
     orderText += `💰 Tổng: ${total.toLocaleString()}đ`;
-    
     document.getElementById("chat-input").value = orderText;
 }
 
@@ -172,15 +196,12 @@ function sendMessage() {
     const text = input.value.trim();
     if (!text) return;
 
-    if (!chatReceiver) {
-        alert("Bạn phải thêm hàng vào giỏ và bấm 'Gửi đơn vào khung chat' để xác định người bán trước khi nhắn tin!");
-        return;
-    }
+    if (!chatReceiverPhone) return alert("Thêm hàng vào giỏ và bấm 'Gửi đơn vào khung chat' trước khi nhắn!");
 
-    // Gửi tin nhắn có ĐỊA CHỈ NHẬN CỤ THỂ
     socket.emit("send_private_message", {
-        sender: currentUsername,
-        receiver: chatReceiver,
+        senderPhone: currentUser.phone,
+        senderName: currentUser.name,
+        receiverPhone: chatReceiverPhone,
         text: text
     });
     input.value = ""; 
@@ -190,43 +211,44 @@ socket.on("receive_message", (data) => {
     const chatBox = document.getElementById("chat-box");
     const msgDiv = document.createElement("div");
     
-    // Nếu tin nhắn gửi đến là của người khác gửi cho mình, tự động đổi khung chat sang tên họ
-    if(data.sender !== currentUsername) {
-        chatReceiver = data.sender;
-        document.querySelector('.chat-container div').innerHTML = `💬 Đang chat với: <b>${chatReceiver}</b>`;
+    // Đảo ngược khung chat nếu nhận tin từ khách lạ
+    if(data.senderPhone !== currentUser.phone) {
+        chatReceiverPhone = data.senderPhone;
+        chatReceiverName = data.senderName;
+        document.querySelector('.chat-container div').innerHTML = `💬 Đang chat với: <b>${chatReceiverName}</b>`;
     }
 
-    // Phân biệt màu sắc: Tin của mình màu cam, tin của khách màu xám
-    if (data.sender === currentUsername) {
+    if (data.senderPhone === currentUser.phone) {
         msgDiv.className = "message shop-message";
         msgDiv.innerHTML = `<strong>Mình:</strong> <span class="msg-text">${data.text}</span>`;
     } else {
         msgDiv.className = "message customer-message";
-        msgDiv.innerHTML = `<strong>👤 ${data.sender}:</strong> <span class="msg-text">${data.text}</span>`;
+        msgDiv.innerHTML = `<strong>👤 ${data.senderName}:</strong> <span class="msg-text">${data.text}</span>`;
     }
     
     chatBox.appendChild(msgDiv);
     chatBox.scrollTop = chatBox.scrollHeight;
 });
 
-// ---------------- TÍNH NĂNG ĐĂNG BÁN ---------------- //
+// ---------------- ĐĂNG BÁN SẢN PHẨM ---------------- //
 async function submitProduct() {
     const name = document.getElementById("post-name").value.trim();
     const price = document.getElementById("post-price").value.trim();
     const category = document.getElementById("post-category").value;
     const image = document.getElementById("post-image").value.trim();
 
-    if (!name || !price) { alert("Nhập đủ tên và giá!"); return; }
+    if (!name || !price) return alert("Nhập đủ tên và giá!");
 
     try {
-        const response = await fetch('/api/products', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            // CỰC KỲ QUAN TRỌNG: Gửi kèm currentUsername làm 'seller'
-            body: JSON.stringify({ name, price, category, image, seller: currentUsername })
+        const res = await fetch('/api/products', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                name, price, category, image, 
+                sellerName: currentUser.name, 
+                sellerPhone: currentUser.phone 
+            })
         });
-
-        const result = await response.json();
+        const result = await res.json();
         if (result.success) {
             alert(result.message);
             document.getElementById("post-modal").style.display = "none";
@@ -241,5 +263,6 @@ socket.on("new_product_added", (newProduct) => {
     renderProducts();
 });
 
-function filterCategory(category, element) { /* ... giữ nguyên code cũ ... */ }
-function handleSearch() { /* ... giữ nguyên code cũ ... */ }
+// Giữ nguyên logic tìm kiếm/lọc
+function filterCategory(category, element) { /* ... */ }
+function handleSearch() { /* ... */ }

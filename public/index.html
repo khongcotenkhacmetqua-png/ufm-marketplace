@@ -8,12 +8,26 @@
 </head>
 <body>
 
-    <div id="login-modal" class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000;">
-        <div class="login-box" style="background: white; padding: 30px; border-radius: 8px; text-align: center; max-width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-            <h2 style="margin-top: 0; color: #333;">Chào mừng đến Chợ UFM</h2>
-            <p style="font-size: 14px; color: #666; margin-bottom: 20px;">Vui lòng nhập tên của bạn để bắt đầu trải nghiệm hệ thống mua bán và nhắn tin riêng tư.</p>
-            <input type="text" id="username-input" placeholder="Nhập tên của bạn (VD: Tuấn IT)..." style="padding: 12px; width: 90%; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;" onkeypress="if(event.key === 'Enter') handleLogin()">
-            <button onclick="handleLogin()" style="padding: 10px 25px; background: #ee4d2d; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 15px;">Vào Cửa Hàng</button>
+    <div id="auth-modal" class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 1000;">
+        <div class="login-box" style="background: white; padding: 30px; border-radius: 8px; text-align: center; width: 100%; max-width: 350px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+            
+            <div id="login-section">
+                <h2 style="margin-top: 0; color: #ee4d2d;">Đăng Nhập</h2>
+                <input type="text" id="login-phone" placeholder="Số điện thoại..." style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                <input type="password" id="login-password" placeholder="Mật khẩu..." style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;" onkeypress="if(event.key === 'Enter') handleLogin()">
+                <button onclick="handleLogin()" style="width: 100%; padding: 12px; background: #ee4d2d; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Đăng Nhập</button>
+                <p style="font-size: 13px; margin-top: 15px;">Chưa có tài khoản? <span onclick="toggleAuth('register')" style="color: #ee4d2d; cursor: pointer; font-weight: bold;">Đăng ký ngay</span></p>
+            </div>
+
+            <div id="register-section" style="display: none;">
+                <h2 style="margin-top: 0; color: #ee4d2d;">Tạo Tài Khoản</h2>
+                <input type="text" id="reg-name" placeholder="Họ và tên bạn (VD: Tuấn)..." style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                <input type="text" id="reg-phone" placeholder="Số điện thoại..." style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                <input type="password" id="reg-password" placeholder="Mật khẩu..." style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;" onkeypress="if(event.key === 'Enter') handleRegister()">
+                <button onclick="handleRegister()" style="width: 100%; padding: 12px; background: #333; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Đăng Ký</button>
+                <p style="font-size: 13px; margin-top: 15px;">Đã có tài khoản? <span onclick="toggleAuth('login')" style="color: #ee4d2d; cursor: pointer; font-weight: bold;">Đăng nhập</span></p>
+            </div>
+
         </div>
     </div>
 
@@ -78,7 +92,7 @@
 
             <div class="chat-container" style="background: white; border-radius: 12px; border: 1px solid #e9ecef; display: flex; flex-direction: column; height: 420px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
                 <div style="padding: 15px; background: #ee4d2d; color: white; border-radius: 12px 12px 0 0; font-weight: bold; text-align: center;">
-                    💬 Chat riêng tư với Shop
+                    💬 Khung Chat Riêng Tư
                 </div>
                 <div class="chat-box" id="chat-box" style="flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; font-size: 14px; background: #f8f9fa;">
                     </div>
