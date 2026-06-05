@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chợ Nội Bộ Sinh Viên UFM - Giống Shopee</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="login-modal" class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000;">
+        <div class="login-box" style="background: white; padding: 30px; border-radius: 8px; text-align: center; max-width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+            <h2 style="margin-top: 0; color: #333;">Chào mừng đến Chợ UFM</h2>
+            <p style="font-size: 14px; color: #666; margin-bottom: 20px;">Vui lòng nhập tên của bạn để bắt đầu trải nghiệm hệ thống mua bán và nhắn tin riêng tư.</p>
+            <input type="text" id="username-input" placeholder="Nhập tên của bạn (VD: Tuấn IT)..." style="padding: 12px; width: 90%; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;" onkeypress="if(event.key === 'Enter') handleLogin()">
+            <button onclick="handleLogin()" style="padding: 10px 25px; background: #ee4d2d; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 15px;">Vào Cửa Hàng</button>
+        </div>
+    </div>
+
+    <header style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="logo">🛒 CHỢ UFM</div>
+        
+        <div class="search-container" style="flex: 1; max-width: 500px; margin: 0 30px; display: flex; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <input type="text" id="search-input" placeholder="Tìm kiếm tài liệu, phòng trọ, việc làm..." style="flex: 1; padding: 10px 15px; border: none; border-radius: 4px 0 0 4px; outline: none; font-size: 14px;" onkeypress="if(event.key === 'Enter') handleSearch()">
+            <button onclick="handleSearch()" style="padding: 10px 20px; background: #fdfdfd; color: #ee4d2d; border: none; border-left: 1px solid #ddd; border-radius: 0 4px 4px 0; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s;">🔍 Tìm kiếm</button>
+        </div>
+
+        <div class="user-cart-area" style="display: flex; align-items: center; gap: 15px;">
+            <button onclick="document.getElementById('post-modal').style.display='flex'" style="background: white; color: #ee4d2d; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">+ Đăng bán</button>
+            
+            <div class="user-info">
+                <span id="user-display">Chưa đăng nhập</span>
+                <button onclick="handleLogout()" style="margin-left: 10px; background: rgba(0,0,0,0.1); color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: bold;">Đăng xuất</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="category-navbar">
+        <button class="tab-btn active" onclick="filterCategory('all', this)">Tất cả</button>
+        <button class="tab-btn" onclick="filterCategory('tai-lieu', this)">📚 Tài liệu</button>
+        <button class="tab-btn" onclick="filterCategory('tro', this)">🏠 Phòng trọ</button>
+        <button class="tab-btn" onclick="filterCategory('viec-lam', this)">💼 Việc làm</button>
+    </div>
+
+    <main>
+        <div class="products-container">
+            <div class="notice-bar">
+                💡 <strong>Mô hình hoạt động:</strong> Hệ thống kết nối mua bán, trao đổi. Hãy thương lượng qua chat và giao dịch trực tiếp tại trường để đảm bảo an toàn!
+            </div>
+
+            <div class="category-section" id="tai-lieu-section">
+                <h2 class="category-title">📚 Tài Liệu & Sách Vở Học Tập</h2>
+                <div class="product-grid" id="tai-lieu-grid"></div>
+            </div>
+
+            <div class="category-section" id="tro-section">
+                <h2 class="category-title">🏠 Tìm Ở Ghép & Phòng Trọ</h2>
+                <div class="product-grid" id="tro-grid"></div>
+            </div>
+
+            <div class="category-section" id="viec-lam-section">
+                <h2 class="category-title">💼 Việc Làm Thêm Sinh Viên</h2>
+                <div class="product-grid" id="viec-lam-grid"></div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="cart-container">
+                <h2>🛍️ Giỏ hàng của bạn (<span id="cart-count">0</span>)</h2>
+                <ul id="cart-items" style="list-style: none; padding: 0; margin: 15px 0; max-height: 150px; overflow-y: auto;">
+                    <p style="color: #999; font-size: 14px; margin: 0;">Chưa có sản phẩm nào được chọn.</p>
+                </ul>
+                <div class="total" style="font-weight: bold; font-size: 16px; margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+                    Tổng tiền: <span id="total-price" style="color: #ee4d2d; font-size: 18px;">0đ</span>
+                </div>
+                <button id="checkout-btn" onclick="sendCartToChat()" style="width: 100%; padding: 12px; background: #ee4d2d; color: white; border: none; border-radius: 6px; margin-top: 15px; cursor: pointer; font-weight: bold;">Gửi đơn vào Khung Chat</button>
+            </div>
+
+            <div class="chat-container" style="background: white; border-radius: 12px; border: 1px solid #e9ecef; display: flex; flex-direction: column; height: 420px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                <div style="padding: 15px; background: #ee4d2d; color: white; border-radius: 12px 12px 0 0; font-weight: bold; text-align: center;">
+                    💬 Chat riêng tư với Shop
+                </div>
+                <div class="chat-box" id="chat-box" style="flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; font-size: 14px; background: #f8f9fa;">
+                    </div>
+                <div class="chat-input-area" style="display: flex; padding: 10px; border-top: 1px solid #ddd; background: white; border-radius: 0 0 12px 12px;">
+                    <input type="text" id="chat-input" placeholder="Thương lượng giá cả..." style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px; outline: none;" onkeypress="if(event.key === 'Enter') sendMessage()">
+                    <button onclick="sendMessage()" style="margin-left: 8px; padding: 10px 15px; background: #ee4d2d; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Gửi</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="post-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 1000;">
+        <div style="background: white; padding: 30px; border-radius: 8px; width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+            <h2 style="margin-top: 0; color: #ee4d2d; border-bottom: 2px solid #eee; padding-bottom: 10px;">Đăng bán sản phẩm</h2>
+            
+            <input type="text" id="post-name" placeholder="Tên sản phẩm/dịch vụ..." style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+            
+            <input type="number" id="post-price" placeholder="Giá tiền (VNĐ)..." style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+            
+            <select id="post-category" style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                <option value="tai-lieu">📚 Tài liệu học tập</option>
+                <option value="tro">🏠 Phòng trọ</option>
+                <option value="viec-lam">💼 Việc làm thêm</option>
+            </select>
+
+            <input type="text" id="post-image" placeholder="Link ảnh sản phẩm (có thể bỏ trống)..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+            
+            <div style="display: flex; gap: 10px;">
+                <button onclick="document.getElementById('post-modal').style.display='none'" style="flex: 1; padding: 10px; background: #ddd; color: #333; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Hủy</button>
+                <button onclick="submitProduct()" style="flex: 1; padding: 10px; background: #ee4d2d; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Đăng Lên Ngay</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
