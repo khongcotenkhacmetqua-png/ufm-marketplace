@@ -67,6 +67,9 @@ function setupUserInterface() {
     document.getElementById("user-display").innerText = "🙋 " + currentUser.name;
     document.getElementById("auth-modal").style.display = "none";
     socket.emit('user_login', currentUser.phone); // Đăng ký sđt với Server để nhận tin nhắn
+    
+    // TẢI LỊCH SỬ TIN NHẮN KHI VỪA ĐĂNG NHẬP
+    fetchMyMessages();
 }
 
 function handleLogout() {
@@ -132,7 +135,7 @@ function removeFromCart(id) {
     updateCartUI();
     if(cart.length === 0) {
         chatReceiverPhone = ""; chatReceiverName = "";
-        document.querySelector('.chat-container div').innerText = "💬 Khung Chat Riêng Tư";
+        document.getElementById('chat-header-name').innerText = "Chưa chọn người chat";
     }
 }
 
@@ -173,96 +176,106 @@ function updateCartUI() {
     totalPrice.innerText = total.toLocaleString() + "đ";
 }
 
-// ---------------- HỆ THỐNG CHAT ĐỊNH DANH SĐT ---------------- //
-function sendCartToChat() {
-    if (cart.length === 0) return alert("Giỏ hàng đang trống!");
-    
-    chatReceiverPhone = cart[0].sellerPhone;
-    chatReceiverName = cart[0].sellerName;
-    document.querySelector('.chat-container div').innerHTML = `💬 Đang chat với: <b>${chatReceiverName}</b>`;
+// =================================================================
+// HỆ THỐNG CHAT ĐA LUỒNG & LƯU LỊCH SỬ
+// =================================================================
+let myMessages = [];
 
-    let orderText = `Chào bạn, mình muốn trao đổi về đơn hàng này:\n`;
-    let total = 0;
-    cart.forEach(item => {
-        orderText += `- ${item.name} (SL: ${item.quantity})\n`;
-        total += item.price * item.quantity;
-    });
-    orderText += `💰 Tổng: ${total.toLocaleString()}đ`;
-    document.getElementById("chat-input").value = orderText;
+// 1. Tải toàn bộ lịch sử từ Server
+async function fetchMyMessages() {
+    if (!currentUser) return;
+    const res = await fetch('/api/messages/' + currentUser.phone);
+    myMessages = await res.json();
+    renderChatContacts();
 }
 
-function sendMessage() {
-    const input = document.getElementById("chat-input");
-    const text = input.value.trim();
-    if (!text) return;
-
-    if (!chatReceiverPhone) return alert("Thêm hàng vào giỏ và bấm 'Gửi đơn vào khung chat' trước khi nhắn!");
-
-    socket.emit("send_private_message", {
-        senderPhone: currentUser.phone,
-        senderName: currentUser.name,
-        receiverPhone: chatReceiverPhone,
-        text: text
+// 2. Gom nhóm tin nhắn để tạo Danh sách hộp thoại
+function renderChatContacts() {
+    const contactMap = {};
+    myMessages.forEach(msg => {
+        if (msg.senderPhone !== currentUser.phone) {
+            contactMap[msg.senderPhone] = msg.senderName;
+        }
+        if (msg.receiverPhone !== currentUser.phone) {
+            contactMap[msg.receiverPhone] = msg.receiverName;
+        }
     });
-    input.value = ""; 
-}
 
-socket.on("receive_message", (data) => {
-    const chatBox = document.getElementById("chat-box");
-    const msgDiv = document.createElement("div");
+    const listUI = document.getElementById("chat-contact-list");
+    if (!listUI) return;
+    listUI.innerHTML = "";
     
-    // Đảo ngược khung chat nếu nhận tin từ khách lạ
-    if(data.senderPhone !== currentUser.phone) {
-        chatReceiverPhone = data.senderPhone;
-        chatReceiverName = data.senderName;
-        document.querySelector('.chat-container div').innerHTML = `💬 Đang chat với: <b>${chatReceiverName}</b>`;
+    if (Object.keys(contactMap).length === 0) {
+        listUI.innerHTML = `<p style="font-size: 11px; color: #888; text-align: center; margin-top: 10px;">Chưa có hộp thoại</p>`;
+        return;
     }
 
+    for (const [phone, name] of Object.entries(contactMap)) {
+        listUI.innerHTML += `
+            <div onclick="openChatHistory('${phone}', '${name}')" style="padding: 10px; border-bottom: 1px solid #ddd; cursor: pointer; font-size: 12px; font-weight: bold; color: #333; transition: 0.2s;" onmouseover="this.style.background='#eee'" onmouseout="this.style.background='transparent'">
+                👤 ${name}
+            </div>`;
+    }
+}
+
+// 3. Mở lịch sử chat với một người
+function openChatHistory(phone, name) {
+    chatReceiverPhone = phone;
+    chatReceiverName = name;
+    document.getElementById("chat-header-name").innerText = `Đang chat với: ${name}`;
+    
+    const chatBox = document.getElementById("chat-box");
+    chatBox.innerHTML = ""; 
+    
+    const history = myMessages.filter(m => 
+        (m.senderPhone === currentUser.phone && m.receiverPhone === phone) ||
+        (m.senderPhone === phone && m.receiverPhone === currentUser.phone)
+    );
+
+    history.forEach(data => appendMessageToUI(data));
+}
+
+// 4. Vẽ tin nhắn lên màn hình
+function appendMessageToUI(data) {
+    const chatBox = document.getElementById("chat-box");
+    const msgDiv = document.createElement("div");
     if (data.senderPhone === currentUser.phone) {
         msgDiv.className = "message shop-message";
         msgDiv.innerHTML = `<strong>Mình:</strong> <span class="msg-text">${data.text}</span>`;
     } else {
         msgDiv.className = "message customer-message";
-        msgDiv.innerHTML = `<strong>👤 ${data.senderName}:</strong> <span class="msg-text">${data.text}</span>`;
+        msgDiv.innerHTML = `<strong>${data.senderName}:</strong> <span class="msg-text">${data.text}</span>`;
     }
-    
     chatBox.appendChild(msgDiv);
     chatBox.scrollTop = chatBox.scrollHeight;
-});
-
-// ---------------- ĐĂNG BÁN SẢN PHẨM ---------------- //
-async function submitProduct() {
-    const name = document.getElementById("post-name").value.trim();
-    const price = document.getElementById("post-price").value.trim();
-    const category = document.getElementById("post-category").value;
-    const image = document.getElementById("post-image").value.trim();
-
-    if (!name || !price) return alert("Nhập đủ tên và giá!");
-
-    try {
-        const res = await fetch('/api/products', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                name, price, category, image, 
-                sellerName: currentUser.name, 
-                sellerPhone: currentUser.phone 
-            })
-        });
-        const result = await res.json();
-        if (result.success) {
-            alert(result.message);
-            document.getElementById("post-modal").style.display = "none";
-            document.getElementById("post-name").value = "";
-            document.getElementById("post-price").value = "";
-        }
-    } catch (error) { console.error(error); }
 }
 
-socket.on("new_product_added", (newProduct) => {
-    dbProducts.push(newProduct);
-    renderProducts();
-});
+// 5. Gửi đơn hàng vào chat
+function sendCartToChat() {
+    if (cart.length === 0) return alert("Giỏ hàng đang trống!");
+    
+    chatReceiverPhone = cart[0].sellerPhone;
+    chatReceiverName = cart[0].sellerName;
+    
+    // Ép hiện người bán lên cột danh sách bên trái nếu chưa từng chat
+    if (!myMessages.find(m => m.senderPhone === chatReceiverPhone || m.receiverPhone === chatReceiverPhone)) {
+        myMessages.push({ senderPhone: currentUser.phone, senderName: currentUser.name, receiverPhone: chatReceiverPhone, receiverName: chatReceiverName, text: "" });
+        renderChatContacts();
+    }
+    
+    openChatHistory(chatReceiverPhone, chatReceiverName);
 
-// Giữ nguyên logic tìm kiếm/lọc
-function filterCategory(category, element) { /* ... */ }
-function handleSearch() { /* ... */ }
+    let orderText = `Chào bạn, mình muốn trao đổi về đơn hàng này:\n`;
+    cart.forEach(item => { orderText += `- ${item.name} (SL: ${item.quantity})\n`; });
+    document.getElementById("chat-input").value = orderText;
+}
+
+// 6. Gửi tin nhắn mới
+function sendMessage() {
+    const input = document.getElementById("chat-input");
+    const text = input.value.trim();
+    if (!text || !chatReceiverPhone) return;
+
+    const newMsg = {
+        senderPhone: currentUser.phone,
+        senderName:
