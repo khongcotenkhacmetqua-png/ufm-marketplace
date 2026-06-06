@@ -1,18 +1,20 @@
 const socket = io();
-let currentUser = null; // Sẽ chứa: { phone, name }
+let currentUser = null; 
 let cart = [];
 let dbProducts = [];
+let myMessages = [];
 let chatReceiverPhone = ""; 
 let chatReceiverName = "";
 
+// ---------------- KHỞI TẠO ---------------- //
 window.onload = async function() {
     try {
         const response = await fetch('/api/products');
         dbProducts = await response.json();
-        renderProducts();
-    } catch (error) { console.error(error); }
+        renderProducts(dbProducts);
+    } catch (error) { console.error("Lỗi:", error); }
     
-    // Kiểm tra phiên đăng nhập
+    // Khôi phục đăng nhập
     const savedUser = localStorage.getItem("ufm_user");
     if (savedUser) {
         currentUser = JSON.parse(savedUser);
@@ -20,7 +22,7 @@ window.onload = async function() {
     }
 };
 
-// ---------------- HỆ THỐNG TÀI KHOẢN ---------------- //
+// ---------------- ĐĂNG NHẬP / ĐĂNG KÝ ---------------- //
 function toggleAuth(type) {
     document.getElementById('login-section').style.display = type === 'login' ? 'block' : 'none';
     document.getElementById('register-section').style.display = type === 'register' ? 'block' : 'none';
@@ -39,7 +41,7 @@ async function handleRegister() {
     });
     const data = await res.json();
     alert(data.message);
-    if (data.success) toggleAuth('login'); // Chuyển qua tab đăng nhập
+    if (data.success) toggleAuth('login');
 }
 
 async function handleLogin() {
@@ -66,41 +68,66 @@ async function handleLogin() {
 function setupUserInterface() {
     document.getElementById("user-display").innerText = "🙋 " + currentUser.name;
     document.getElementById("auth-modal").style.display = "none";
-    socket.emit('user_login', currentUser.phone); // Đăng ký sđt với Server để nhận tin nhắn
-    
-    // TẢI LỊCH SỬ TIN NHẮN KHI VỪA ĐĂNG NHẬP
-    fetchMyMessages();
+    socket.emit('user_login', currentUser.phone); 
+    fetchMyMessages(); // Tải tin nhắn ngay khi online
 }
 
 function handleLogout() {
     localStorage.removeItem("ufm_user");
-    location.reload();
+    currentUser = null;
+    location.reload(); // Tải lại trang sẽ xóa sạch bộ nhớ tạm
 }
 
-// ---------------- GIAO DIỆN & SẢN PHẨM ---------------- //
-function renderProducts(productsToRender = dbProducts) {
-    const taiLieuGrid = document.getElementById("tai-lieu-grid");
-    const troGrid = document.getElementById("tro-grid");
-    const viecLamGrid = document.getElementById("viec-lam-grid");
+// ---------------- XỬ LÝ GIAO DIỆN SẢN PHẨM ---------------- //
+function renderProducts(productsToRender) {
+    const grids = {
+        'tai-lieu': document.getElementById("tai-lieu-grid"),
+        'tro': document.getElementById("tro-grid"),
+        'viec-lam': document.getElementById("viec-lam-grid")
+    };
 
-    if(taiLieuGrid) taiLieuGrid.innerHTML = "";
-    if(troGrid) troGrid.innerHTML = "";
-    if(viecLamGrid) viecLamGrid.innerHTML = "";
+    Object.values(grids).forEach(g => { if(g) g.innerHTML = ""; });
+
+    if (productsToRender.length === 0) {
+        document.getElementById("tai-lieu-grid").innerHTML = "<p style='color: #888; grid-column: 1/-1;'>Chưa có sản phẩm nào. Hãy đăng bán!</p>";
+        return;
+    }
 
     productsToRender.forEach(p => {
         const card = document.createElement("div");
         card.className = "product-card";
+        const descText = p.description ? `<p style="font-size: 12px; color: #444; margin: 0 0 10px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">📝 <i>${p.description}</i></p>` : '';
+        const imgUrl = p.image || 'https://via.placeholder.com/400x300?text=Chua+co+hinh+anh';
+
         card.innerHTML = `
-            <img src="${p.image}" alt="${p.name}">
+            <img src="${imgUrl}" alt="${p.name}">
             <h3>${p.name}</h3>
-            <p style="font-size: 12px; color: #666; margin: 0 0 10px 0;">👤 Bán bởi: <b>${p.sellerName}</b></p>
-            <div class="price">${p.price.toLocaleString()}đ</div>
+            <p style="font-size: 12px; color: #666; margin: 0 0 5px 0;">👤 Người bán: <b>${p.sellerName}</b></p>
+            ${descText}
+            <div class="price">${parseInt(p.price).toLocaleString()}đ</div>
             <button onclick="addToCart(${p.id})">Thêm vào đơn</button>
         `;
-        if (p.category === 'tai-lieu' && taiLieuGrid) taiLieuGrid.appendChild(card);
-        else if (p.category === 'tro' && troGrid) troGrid.appendChild(card);
-        else if (p.category === 'viec-lam' && viecLamGrid) viecLamGrid.appendChild(card);
+        if (grids[p.category]) grids[p.category].appendChild(card);
     });
+}
+
+function filterCategory(category, element) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    if(element) element.classList.add('active');
+
+    if (category === 'all') renderProducts(dbProducts);
+    else renderProducts(dbProducts.filter(p => p.category === category));
+}
+
+function handleSearch() {
+    const keyword = document.getElementById("search-input").value.toLowerCase().trim();
+    if (!keyword) {
+        renderProducts(dbProducts);
+        return;
+    }
+    const filtered = dbProducts.filter(p => p.name.toLowerCase().includes(keyword) || (p.description && p.description.toLowerCase().includes(keyword)));
+    renderProducts(filtered);
+    if(filtered.length === 0) alert("Không tìm thấy sản phẩm nào!");
 }
 
 // ---------------- GIỎ HÀNG ---------------- //
@@ -108,10 +135,8 @@ function addToCart(id) {
     if (!currentUser) return alert("Vui lòng đăng nhập để mua hàng!");
     
     const product = dbProducts.find(p => p.id === id);
-    if (product.sellerPhone === currentUser.phone) {
-        return alert("Bạn không thể tự mua hàng của chính mình!");
-    }
-
+    if (product.sellerPhone === currentUser.phone) return alert("Bạn không thể tự mua hàng của chính mình!");
+    
     if (cart.length > 0 && cart[0].sellerPhone !== product.sellerPhone) {
         return alert("⚠️ Giỏ hàng chỉ chứa sản phẩm của 1 người bán cùng lúc để dễ chat!");
     }
@@ -133,17 +158,10 @@ function changeQuantity(id, amount) {
 function removeFromCart(id) {
     cart = cart.filter(item => item.id !== id);
     updateCartUI();
-    if(cart.length === 0) {
-        chatReceiverPhone = ""; chatReceiverName = "";
-        document.getElementById('chat-header-name').innerText = "Chưa chọn người chat";
-    }
 }
 
 function updateCartUI() {
     const cartItems = document.getElementById("cart-items");
-    const cartCount = document.getElementById("cart-count");
-    const totalPrice = document.getElementById("total-price");
-    
     cartItems.innerHTML = "";
     let total = 0; let count = 0;
 
@@ -153,35 +171,26 @@ function updateCartUI() {
         cart.forEach(item => {
             total += item.price * item.quantity;
             count += item.quantity;
-            
-            const li = document.createElement("li");
-            li.style.display = "flex"; li.style.justifyContent = "space-between"; li.style.alignItems = "center";
-            li.style.padding = "8px 0"; li.style.borderBottom = "1px dashed #ddd";
-            li.innerHTML = `
-                <div style="flex: 1; padding-right: 10px; font-size: 13px;">
-                    <strong>${item.name}</strong>
-                    <div style="color: #666;">${item.price.toLocaleString()}đ</div>
-                </div>
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <button onclick="changeQuantity(${item.id}, -1)" style="padding: 2px 6px;">-</button>
-                    <span style="font-weight:bold; min-width: 20px; text-align:center;">${item.quantity}</span>
-                    <button onclick="changeQuantity(${item.id}, 1)" style="padding: 2px 6px;">+</button>
-                    <button onclick="removeFromCart(${item.id})" style="color: #ff4d4f; border:none; background:none; cursor:pointer;">❌</button>
-                </div>
-            `;
-            cartItems.appendChild(li);
+            cartItems.innerHTML += `
+                <li style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #ddd;">
+                    <div style="flex: 1; padding-right: 10px; font-size: 13px;">
+                        <strong>${item.name}</strong>
+                        <div style="color: #666;">${item.price.toLocaleString()}đ</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <button onclick="changeQuantity(${item.id}, -1)" style="padding: 2px 6px;">-</button>
+                        <span style="font-weight:bold; min-width: 20px; text-align:center;">${item.quantity}</span>
+                        <button onclick="changeQuantity(${item.id}, 1)" style="padding: 2px 6px;">+</button>
+                        <button onclick="removeFromCart(${item.id})" style="color: #ff4d4f; border:none; background:none; cursor:pointer;">❌</button>
+                    </div>
+                </li>`;
         });
     }
-    cartCount.innerText = count;
-    totalPrice.innerText = total.toLocaleString() + "đ";
+    document.getElementById("cart-count").innerText = count;
+    document.getElementById("total-price").innerText = total.toLocaleString() + "đ";
 }
 
-// =================================================================
-// HỆ THỐNG CHAT ĐA LUỒNG & LƯU LỊCH SỬ
-// =================================================================
-let myMessages = [];
-
-// 1. Tải toàn bộ lịch sử từ Server
+// ---------------- HỘP THƯ CHAT ---------------- //
 async function fetchMyMessages() {
     if (!currentUser) return;
     const res = await fetch('/api/messages/' + currentUser.phone);
@@ -189,20 +198,14 @@ async function fetchMyMessages() {
     renderChatContacts();
 }
 
-// 2. Gom nhóm tin nhắn để tạo Danh sách hộp thoại
 function renderChatContacts() {
     const contactMap = {};
     myMessages.forEach(msg => {
-        if (msg.senderPhone !== currentUser.phone) {
-            contactMap[msg.senderPhone] = msg.senderName;
-        }
-        if (msg.receiverPhone !== currentUser.phone) {
-            contactMap[msg.receiverPhone] = msg.receiverName;
-        }
+        if (msg.senderPhone !== currentUser.phone) contactMap[msg.senderPhone] = msg.senderName;
+        if (msg.receiverPhone !== currentUser.phone) contactMap[msg.receiverPhone] = msg.receiverName;
     });
 
     const listUI = document.getElementById("chat-contact-list");
-    if (!listUI) return;
     listUI.innerHTML = "";
     
     if (Object.keys(contactMap).length === 0) {
@@ -218,7 +221,6 @@ function renderChatContacts() {
     }
 }
 
-// 3. Mở lịch sử chat với một người
 function openChatHistory(phone, name) {
     chatReceiverPhone = phone;
     chatReceiverName = name;
@@ -235,7 +237,6 @@ function openChatHistory(phone, name) {
     history.forEach(data => appendMessageToUI(data));
 }
 
-// 4. Vẽ tin nhắn lên màn hình
 function appendMessageToUI(data) {
     const chatBox = document.getElementById("chat-box");
     const msgDiv = document.createElement("div");
@@ -250,14 +251,12 @@ function appendMessageToUI(data) {
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// 5. Gửi đơn hàng vào chat
 function sendCartToChat() {
     if (cart.length === 0) return alert("Giỏ hàng đang trống!");
     
     chatReceiverPhone = cart[0].sellerPhone;
     chatReceiverName = cart[0].sellerName;
     
-    // Ép hiện người bán lên cột danh sách bên trái nếu chưa từng chat
     if (!myMessages.find(m => m.senderPhone === chatReceiverPhone || m.receiverPhone === chatReceiverPhone)) {
         myMessages.push({ senderPhone: currentUser.phone, senderName: currentUser.name, receiverPhone: chatReceiverPhone, receiverName: chatReceiverName, text: "" });
         renderChatContacts();
@@ -265,17 +264,67 @@ function sendCartToChat() {
     
     openChatHistory(chatReceiverPhone, chatReceiverName);
 
-    let orderText = `Chào bạn, mình muốn trao đổi về đơn hàng này:\n`;
+    let orderText = `Chào bạn, mình muốn mua đơn hàng này:\n`;
     cart.forEach(item => { orderText += `- ${item.name} (SL: ${item.quantity})\n`; });
     document.getElementById("chat-input").value = orderText;
 }
 
-// 6. Gửi tin nhắn mới
 function sendMessage() {
     const input = document.getElementById("chat-input");
     const text = input.value.trim();
     if (!text || !chatReceiverPhone) return;
 
-    const newMsg = {
+    socket.emit("send_private_message", {
         senderPhone: currentUser.phone,
-        senderName:
+        senderName: currentUser.name,
+        receiverPhone: chatReceiverPhone,
+        receiverName: chatReceiverName,
+        text: text
+    });
+    input.value = ""; 
+}
+
+socket.on("receive_message", (data) => {
+    if(data.text !== "") myMessages.push(data); 
+    renderChatContacts();
+    if ((data.senderPhone === chatReceiverPhone && data.receiverPhone === currentUser.phone) || (data.senderPhone === currentUser.phone && data.receiverPhone === chatReceiverPhone)) {
+        appendMessageToUI(data);
+    }
+});
+
+// ---------------- ĐĂNG BÁN SẢN PHẨM ---------------- //
+function openPostModal() {
+    if (!currentUser) return alert("⚠️ Vui lòng đăng nhập để đăng bán!");
+    document.getElementById('post-modal').style.display = 'flex';
+}
+
+async function submitProduct() {
+    const name = document.getElementById("post-name").value.trim();
+    const price = document.getElementById("post-price").value.trim();
+    const description = document.getElementById("post-description").value.trim();
+    const category = document.getElementById("post-category").value;
+    const image = document.getElementById("post-image").value.trim();
+
+    if (!name || !price) return alert("Vui lòng nhập đủ Tên và Giá!");
+
+    try {
+        const res = await fetch('/api/products', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, price, description, category, image, sellerName: currentUser.name, sellerPhone: currentUser.phone })
+        });
+        const result = await res.json();
+        if (result.success) {
+            alert(result.message);
+            document.getElementById("post-modal").style.display = "none";
+            document.getElementById("post-name").value = "";
+            document.getElementById("post-price").value = "";
+            document.getElementById("post-description").value = "";
+            document.getElementById("post-image").value = "";
+        }
+    } catch (error) { console.error(error); }
+}
+
+socket.on("new_product_added", (newProduct) => {
+    dbProducts.push(newProduct);
+    renderProducts(dbProducts); // Tự động load sản phẩm mới cho mọi người xem
+});
