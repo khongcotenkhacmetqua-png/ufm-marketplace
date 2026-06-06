@@ -6,7 +6,6 @@ let myMessages = [];
 let chatReceiverPhone = ""; 
 let chatReceiverName = "";
 
-// ---------------- KHỞI TẠO ---------------- //
 window.onload = async function() {
     try {
         const response = await fetch('/api/products');
@@ -14,7 +13,6 @@ window.onload = async function() {
         renderProducts(dbProducts);
     } catch (error) { console.error("Lỗi:", error); }
     
-    // Khôi phục đăng nhập
     const savedUser = localStorage.getItem("ufm_user");
     if (savedUser) {
         currentUser = JSON.parse(savedUser);
@@ -22,7 +20,7 @@ window.onload = async function() {
     }
 };
 
-// ---------------- ĐĂNG NHẬP / ĐĂNG KÝ ---------------- //
+// ---------------- TÀI KHOẢN ---------------- //
 function toggleAuth(type) {
     document.getElementById('login-section').style.display = type === 'login' ? 'block' : 'none';
     document.getElementById('register-section').style.display = type === 'register' ? 'block' : 'none';
@@ -69,16 +67,16 @@ function setupUserInterface() {
     document.getElementById("user-display").innerText = "🙋 " + currentUser.name;
     document.getElementById("auth-modal").style.display = "none";
     socket.emit('user_login', currentUser.phone); 
-    fetchMyMessages(); // Tải tin nhắn ngay khi online
+    fetchMyMessages(); 
 }
 
 function handleLogout() {
     localStorage.removeItem("ufm_user");
     currentUser = null;
-    location.reload(); // Tải lại trang sẽ xóa sạch bộ nhớ tạm
+    location.reload(); 
 }
 
-// ---------------- XỬ LÝ GIAO DIỆN SẢN PHẨM ---------------- //
+// ---------------- SẢN PHẨM & TÌM KIẾM ---------------- //
 function renderProducts(productsToRender) {
     const grids = {
         'tai-lieu': document.getElementById("tai-lieu-grid"),
@@ -89,7 +87,7 @@ function renderProducts(productsToRender) {
     Object.values(grids).forEach(g => { if(g) g.innerHTML = ""; });
 
     if (productsToRender.length === 0) {
-        document.getElementById("tai-lieu-grid").innerHTML = "<p style='color: #888; grid-column: 1/-1;'>Chưa có sản phẩm nào. Hãy đăng bán!</p>";
+        document.getElementById("tai-lieu-grid").innerHTML = "<p style='color: #888; grid-column: 1/-1;'>Chưa có sản phẩm nào. Hãy là người đầu tiên đăng bán!</p>";
         return;
     }
 
@@ -104,8 +102,8 @@ function renderProducts(productsToRender) {
             <h3>${p.name}</h3>
             <p style="font-size: 12px; color: #666; margin: 0 0 5px 0;">👤 Người bán: <b>${p.sellerName}</b></p>
             ${descText}
-            <div class="price">${parseInt(p.price).toLocaleString()}đ</div>
-            <button onclick="addToCart(${p.id})">Thêm vào đơn</button>
+            <div class="price" style="color: #ee4d2d; font-weight: bold; font-size: 18px; margin-bottom: 10px;">${parseInt(p.price).toLocaleString()}đ</div>
+            <button onclick="addToCart(${p.id})">Thêm vào giỏ</button>
         `;
         if (grids[p.category]) grids[p.category].appendChild(card);
     });
@@ -129,6 +127,42 @@ function handleSearch() {
     renderProducts(filtered);
     if(filtered.length === 0) alert("Không tìm thấy sản phẩm nào!");
 }
+
+function openPostModal() {
+    if (!currentUser) return alert("⚠️ Vui lòng đăng nhập để đăng bán!");
+    document.getElementById('post-modal').style.display = 'flex';
+}
+
+async function submitProduct() {
+    const name = document.getElementById("post-name").value.trim();
+    const price = document.getElementById("post-price").value.trim();
+    const description = document.getElementById("post-description").value.trim();
+    const category = document.getElementById("post-category").value;
+    const image = document.getElementById("post-image").value.trim();
+
+    if (!name || !price) return alert("Vui lòng nhập đủ Tên và Giá!");
+
+    try {
+        const res = await fetch('/api/products', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, price, description, category, image, sellerName: currentUser.name, sellerPhone: currentUser.phone })
+        });
+        const result = await res.json();
+        if (result.success) {
+            alert(result.message);
+            document.getElementById("post-modal").style.display = "none";
+            document.getElementById("post-name").value = "";
+            document.getElementById("post-price").value = "";
+            document.getElementById("post-description").value = "";
+            document.getElementById("post-image").value = "";
+        }
+    } catch (error) { console.error(error); }
+}
+
+socket.on("new_product_added", (newProduct) => {
+    dbProducts.push(newProduct);
+    renderProducts(dbProducts); 
+});
 
 // ---------------- GIỎ HÀNG ---------------- //
 function addToCart(id) {
@@ -175,7 +209,7 @@ function updateCartUI() {
                 <li style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #ddd;">
                     <div style="flex: 1; padding-right: 10px; font-size: 13px;">
                         <strong>${item.name}</strong>
-                        <div style="color: #666;">${item.price.toLocaleString()}đ</div>
+                        <div style="color: #666;">${parseInt(item.price).toLocaleString()}đ</div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 5px;">
                         <button onclick="changeQuantity(${item.id}, -1)" style="padding: 2px 6px;">-</button>
@@ -190,7 +224,7 @@ function updateCartUI() {
     document.getElementById("total-price").innerText = total.toLocaleString() + "đ";
 }
 
-// ---------------- HỘP THƯ CHAT ---------------- //
+// ---------------- HỘP THƯ CHAT ĐA LUỒNG ---------------- //
 async function fetchMyMessages() {
     if (!currentUser) return;
     const res = await fetch('/api/messages/' + currentUser.phone);
@@ -214,8 +248,10 @@ function renderChatContacts() {
     }
 
     for (const [phone, name] of Object.entries(contactMap)) {
+        // Đánh dấu đậm cho người đang được chọn chat
+        const isActive = phone === chatReceiverPhone ? "active" : "";
         listUI.innerHTML += `
-            <div onclick="openChatHistory('${phone}', '${name}')" style="padding: 10px; border-bottom: 1px solid #ddd; cursor: pointer; font-size: 12px; font-weight: bold; color: #333; transition: 0.2s;" onmouseover="this.style.background='#eee'" onmouseout="this.style.background='transparent'">
+            <div class="contact-item ${isActive}" onclick="openChatHistory('${phone}', '${name}')">
                 👤 ${name}
             </div>`;
     }
@@ -224,8 +260,11 @@ function renderChatContacts() {
 function openChatHistory(phone, name) {
     chatReceiverPhone = phone;
     chatReceiverName = name;
-    document.getElementById("chat-header-name").innerText = `Đang chat với: ${name}`;
+    document.getElementById("chat-header-name").innerText = `Với: ${name}`;
     
+    // Vẽ lại danh sách bên trái để highlight ô vừa chọn
+    renderChatContacts();
+
     const chatBox = document.getElementById("chat-box");
     chatBox.innerHTML = ""; 
     
@@ -238,15 +277,11 @@ function openChatHistory(phone, name) {
 }
 
 function appendMessageToUI(data) {
+    if(data.text.trim() === "") return; // Ẩn tin nhắn kích hoạt ảo
     const chatBox = document.getElementById("chat-box");
     const msgDiv = document.createElement("div");
-    if (data.senderPhone === currentUser.phone) {
-        msgDiv.className = "message shop-message";
-        msgDiv.innerHTML = `<strong>Mình:</strong> <span class="msg-text">${data.text}</span>`;
-    } else {
-        msgDiv.className = "message customer-message";
-        msgDiv.innerHTML = `<strong>${data.senderName}:</strong> <span class="msg-text">${data.text}</span>`;
-    }
+    msgDiv.className = "message " + (data.senderPhone === currentUser.phone ? "shop-message" : "customer-message");
+    msgDiv.innerHTML = `${data.text}`;
     chatBox.appendChild(msgDiv);
     chatBox.scrollTop = chatBox.scrollHeight;
 }
@@ -257,14 +292,14 @@ function sendCartToChat() {
     chatReceiverPhone = cart[0].sellerPhone;
     chatReceiverName = cart[0].sellerName;
     
+    // Gửi 1 tin nhắn ảo để ép người bán này hiện ra cột danh sách bên trái
     if (!myMessages.find(m => m.senderPhone === chatReceiverPhone || m.receiverPhone === chatReceiverPhone)) {
         myMessages.push({ senderPhone: currentUser.phone, senderName: currentUser.name, receiverPhone: chatReceiverPhone, receiverName: chatReceiverName, text: "" });
-        renderChatContacts();
     }
     
     openChatHistory(chatReceiverPhone, chatReceiverName);
 
-    let orderText = `Chào bạn, mình muốn mua đơn hàng này:\n`;
+    let orderText = `Chào bạn, mình quan tâm đơn hàng này:\n`;
     cart.forEach(item => { orderText += `- ${item.name} (SL: ${item.quantity})\n`; });
     document.getElementById("chat-input").value = orderText;
 }
@@ -285,46 +320,9 @@ function sendMessage() {
 }
 
 socket.on("receive_message", (data) => {
-    if(data.text !== "") myMessages.push(data); 
+    myMessages.push(data); 
     renderChatContacts();
     if ((data.senderPhone === chatReceiverPhone && data.receiverPhone === currentUser.phone) || (data.senderPhone === currentUser.phone && data.receiverPhone === chatReceiverPhone)) {
         appendMessageToUI(data);
     }
-});
-
-// ---------------- ĐĂNG BÁN SẢN PHẨM ---------------- //
-function openPostModal() {
-    if (!currentUser) return alert("⚠️ Vui lòng đăng nhập để đăng bán!");
-    document.getElementById('post-modal').style.display = 'flex';
-}
-
-async function submitProduct() {
-    const name = document.getElementById("post-name").value.trim();
-    const price = document.getElementById("post-price").value.trim();
-    const description = document.getElementById("post-description").value.trim();
-    const category = document.getElementById("post-category").value;
-    const image = document.getElementById("post-image").value.trim();
-
-    if (!name || !price) return alert("Vui lòng nhập đủ Tên và Giá!");
-
-    try {
-        const res = await fetch('/api/products', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, price, description, category, image, sellerName: currentUser.name, sellerPhone: currentUser.phone })
-        });
-        const result = await res.json();
-        if (result.success) {
-            alert(result.message);
-            document.getElementById("post-modal").style.display = "none";
-            document.getElementById("post-name").value = "";
-            document.getElementById("post-price").value = "";
-            document.getElementById("post-description").value = "";
-            document.getElementById("post-image").value = "";
-        }
-    } catch (error) { console.error(error); }
-}
-
-socket.on("new_product_added", (newProduct) => {
-    dbProducts.push(newProduct);
-    renderProducts(dbProducts); // Tự động load sản phẩm mới cho mọi người xem
 });

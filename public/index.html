@@ -5,12 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chợ Nội Bộ Sinh Viên UFM</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Ép layout chuẩn - Chống bị style.css cũ phá */
+        body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
+        
+        .category-navbar { display: flex !important; justify-content: center; background: white; padding: 10px 20px; gap: 15px; border-top: 1px solid #eee; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .category-navbar button { flex: 1; padding: 12px; background: white; border: 1px solid #ddd; font-weight: bold; cursor: pointer; border-radius: 4px; color: #333; font-size: 15px; }
+        .category-navbar button.active { background: #ee4d2d !important; color: white !important; border-color: #ee4d2d; }
+        
+        main { display: flex !important; max-width: 1300px; margin: 20px auto; padding: 0 20px; gap: 20px; align-items: flex-start; flex-direction: row !important; }
+        .products-container { flex: 7 !important; display: block !important; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); min-height: 80vh; width: 100%; }
+        .sidebar { flex: 3 !important; display: flex !important; flex-direction: column; gap: 20px; width: 100%; }
+        
+        .product-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border: 1px solid #eee; }
+        .product-card img { width: 100%; height: 180px; object-fit: cover; border-radius: 4px; }
+        .product-card h3 { font-size: 16px; margin: 10px 0; color: #333; }
+        .product-card button { width: 100%; padding: 10px; background: #ee4d2d; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; }
+        
+        /* Cấu hình Khung Chat */
+        .message { padding: 8px 12px; border-radius: 15px; max-width: 80%; line-height: 1.4; word-wrap: break-word; font-size: 13px; }
+        .shop-message { background: #ee4d2d; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .customer-message { background: #e9ecef; color: black; align-self: flex-start; border-bottom-left-radius: 2px; }
+        .contact-item { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 13px; font-weight: bold; color: #333; transition: 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .contact-item:hover { background: #f1f1f1; }
+        .contact-item.active { background: #ffebee; color: #ee4d2d; border-right: 3px solid #ee4d2d; }
+    </style>
 </head>
 <body>
 
+    <!-- MODAL ĐĂNG NHẬP / ĐĂNG KÝ -->
     <div id="auth-modal" class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 1000;">
         <div class="login-box" style="background: white; padding: 30px; border-radius: 8px; text-align: center; width: 100%; max-width: 350px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-            
             <div id="login-section">
                 <h2 style="margin-top: 0; color: #ee4d2d;">Đăng Nhập</h2>
                 <input type="text" id="login-phone" placeholder="Số điện thoại..." style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
@@ -18,37 +44,34 @@
                 <button onclick="handleLogin()" style="width: 100%; padding: 12px; background: #ee4d2d; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Đăng Nhập</button>
                 <p style="font-size: 13px; margin-top: 15px;">Chưa có tài khoản? <span onclick="toggleAuth('register')" style="color: #ee4d2d; cursor: pointer; font-weight: bold;">Đăng ký ngay</span></p>
             </div>
-
             <div id="register-section" style="display: none;">
                 <h2 style="margin-top: 0; color: #ee4d2d;">Tạo Tài Khoản</h2>
-                <input type="text" id="reg-name" placeholder="Họ và tên bạn (VD: Tuấn)..." style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                <input type="text" id="reg-name" placeholder="Họ và tên..." style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
                 <input type="text" id="reg-phone" placeholder="Số điện thoại..." style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
                 <input type="password" id="reg-password" placeholder="Mật khẩu..." style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;" onkeypress="if(event.key === 'Enter') handleRegister()">
                 <button onclick="handleRegister()" style="width: 100%; padding: 12px; background: #333; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Đăng Ký</button>
                 <p style="font-size: 13px; margin-top: 15px;">Đã có tài khoản? <span onclick="toggleAuth('login')" style="color: #ee4d2d; cursor: pointer; font-weight: bold;">Đăng nhập</span></p>
             </div>
-
         </div>
     </div>
 
-    <header style="display: flex; justify-content: space-between; align-items: center;">
-        <div class="logo">🛒 CHỢ UFM</div>
-        
-        <div class="search-container" style="flex: 1; max-width: 500px; margin: 0 30px; display: flex; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <input type="text" id="search-input" placeholder="Tìm kiếm tài liệu, trọ, việc làm..." style="flex: 1; padding: 10px 15px; border: none; border-radius: 4px 0 0 4px; outline: none; font-size: 14px;" onkeypress="if(event.key === 'Enter') handleSearch()">
-            <button onclick="handleSearch()" style="padding: 10px 20px; background: #fdfdfd; color: #ee4d2d; border: none; border-left: 1px solid #ddd; border-radius: 0 4px 4px 0; cursor: pointer; font-weight: bold; font-size: 14px;">🔍 Tìm kiếm</button>
+    <!-- HEADER -->
+    <header style="display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100;">
+        <div class="logo" style="color: #ee4d2d; font-size: 24px; font-weight: bold;">🛒 CHỢ UFM</div>
+        <div class="search-container" style="flex: 1; max-width: 500px; margin: 0 30px; display: flex;">
+            <input type="text" id="search-input" placeholder="Tìm kiếm tài liệu, trọ, việc làm..." style="flex: 1; padding: 10px 15px; border: 1px solid #ee4d2d; border-radius: 4px 0 0 4px; outline: none;">
+            <button onclick="handleSearch()" style="padding: 10px 20px; background: #ee4d2d; color: white; border: none; border-radius: 0 4px 4px 0; cursor: pointer; font-weight: bold;">Tìm kiếm</button>
         </div>
-
         <div class="user-cart-area" style="display: flex; align-items: center; gap: 15px;">
-            <button onclick="openPostModal()" style="background: white; color: #ee4d2d; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">+ Đăng bán</button>
-            
+            <button onclick="openPostModal()" style="background: white; color: #ee4d2d; border: 1px solid #ee4d2d; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer;">+ Đăng bán</button>
             <div class="user-info">
-                <span id="user-display">Chưa đăng nhập</span>
-                <button onclick="handleLogout()" style="margin-left: 10px; background: rgba(0,0,0,0.1); color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: bold;">Đăng xuất</button>
+                <span id="user-display" style="font-weight: bold;">Chưa đăng nhập</span>
+                <button onclick="handleLogout()" style="margin-left: 10px; background: #333; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">Đăng xuất</button>
             </div>
         </div>
     </header>
 
+    <!-- THANH DANH MỤC -->
     <div class="category-navbar">
         <button class="tab-btn active" onclick="filterCategory('all', this)">Tất cả</button>
         <button class="tab-btn" onclick="filterCategory('tai-lieu', this)">📚 Tài liệu</button>
@@ -56,57 +79,57 @@
         <button class="tab-btn" onclick="filterCategory('viec-lam', this)">💼 Việc làm</button>
     </div>
 
+    <!-- KHU VỰC CHÍNH CHIA 2 CỘT -->
     <main>
+        <!-- CỘT TRÁI: DANH SÁCH SẢN PHẨM -->
         <div class="products-container">
-            <div class="notice-bar">
-                💡 <strong>Mô hình hoạt động:</strong> Hệ thống kết nối mua bán. Vui lòng thêm hàng vào giỏ và chat trực tiếp với người bán để thương lượng!
+            <div style="background: #fff8e1; color: #856404; padding: 15px; border-radius: 4px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+                💡 <strong>Mô hình hoạt động:</strong> Hiện tại hệ thống đang trống. Vui lòng đăng nhập để đăng bán những sản phẩm đầu tiên!
             </div>
 
             <div class="category-section" id="tai-lieu-section">
-                <h2 class="category-title">📚 Tài Liệu & Sách Vở Học Tập</h2>
+                <h2 style="color: #333; border-bottom: 2px solid #ee4d2d; padding-bottom: 10px; margin-top: 0;">📚 Tài Liệu & Sách Vở Học Tập</h2>
                 <div class="product-grid" id="tai-lieu-grid"></div>
             </div>
 
-            <div class="category-section" id="tro-section">
-                <h2 class="category-title">🏠 Tìm Ở Ghép & Phòng Trọ</h2>
+            <div class="category-section" id="tro-section" style="margin-top: 40px;">
+                <h2 style="color: #333; border-bottom: 2px solid #ee4d2d; padding-bottom: 10px;">🏠 Tìm Ở Ghép & Phòng Trọ</h2>
                 <div class="product-grid" id="tro-grid"></div>
             </div>
 
-            <div class="category-section" id="viec-lam-section">
-                <h2 class="category-title">💼 Việc Làm Thêm Sinh Viên</h2>
+            <div class="category-section" id="viec-lam-section" style="margin-top: 40px;">
+                <h2 style="color: #333; border-bottom: 2px solid #ee4d2d; padding-bottom: 10px;">💼 Việc Làm Thêm Sinh Viên</h2>
                 <div class="product-grid" id="viec-lam-grid"></div>
             </div>
         </div>
 
+        <!-- CỘT PHẢI: GIỎ HÀNG & CHAT -->
         <div class="sidebar">
-            <div class="cart-container">
-                <h2>🛍️ Giỏ hàng của bạn (<span id="cart-count">0</span>)</h2>
-                <ul id="cart-items" style="list-style: none; padding: 0; margin: 15px 0; max-height: 150px; overflow-y: auto;">
+            <div class="cart-container" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                <h2 style="margin-top: 0; font-size: 18px; color: #333;">🛍️ Giỏ hàng (<span id="cart-count">0</span>)</h2>
+                <ul id="cart-items" style="list-style: none; padding: 0; margin: 15px 0; max-height: 200px; overflow-y: auto;">
                     <p style="color: #999; font-size: 14px; margin: 0;">Chưa có sản phẩm nào được chọn.</p>
                 </ul>
-                <div class="total" style="font-weight: bold; font-size: 16px; margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+                <div style="font-weight: bold; font-size: 16px; border-top: 1px solid #eee; padding-top: 10px;">
                     Tổng tiền: <span id="total-price" style="color: #ee4d2d; font-size: 18px;">0đ</span>
                 </div>
-                <button id="checkout-btn" onclick="sendCartToChat()" style="width: 100%; padding: 12px; background: #ee4d2d; color: white; border: none; border-radius: 6px; margin-top: 15px; cursor: pointer; font-weight: bold;">Gửi đơn vào Khung Chat</button>
+                <button onclick="sendCartToChat()" style="width: 100%; padding: 12px; background: #ee4d2d; color: white; border: none; border-radius: 6px; margin-top: 15px; cursor: pointer; font-weight: bold;">Gửi đơn vào Khung Chat</button>
             </div>
 
-            <div class="chat-container" style="background: white; border-radius: 12px; border: 1px solid #e9ecef; display: flex; flex-direction: column; height: 420px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                <div style="padding: 10px 15px; background: #ee4d2d; color: white; border-radius: 12px 12px 0 0; font-weight: bold; font-size: 14px; display: flex; justify-content: space-between;">
-                    <span>💬 Hộp Thư</span>
-                    <span id="chat-header-name" style="font-size: 12px; font-weight: normal;">Chưa chọn người chat</span>
+            <div class="chat-wrapper" style="background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; height: 500px; overflow: hidden;">
+                <div style="background: #ee4d2d; color: white; padding: 15px; font-weight: bold; text-align: center;">
+                    💬 <span id="chat-header-name">Hộp Thư Riêng Tư</span>
                 </div>
-                
                 <div style="display: flex; flex: 1; overflow: hidden;">
-                    <div id="chat-contact-list" style="width: 120px; border-right: 1px solid #ddd; background: #f8f9fa; overflow-y: auto;">
-                        <p style="font-size: 11px; color: #888; text-align: center; margin-top: 10px;">Chưa có tin nhắn</p>
+                    <div id="chat-contact-list" style="width: 35%; border-right: 1px solid #e0e0e0; background: #fafafa; overflow-y: auto;">
+                        <p style="font-size: 12px; color: #888; text-align: center; margin-top: 20px;">Trống</p>
                     </div>
-                    
-                    <div style="flex: 1; display: flex; flex-direction: column;">
-                        <div class="chat-box" id="chat-box" style="flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; font-size: 13px; background: white;">
+                    <div style="flex: 1; display: flex; flex-direction: column; background: #ffffff;">
+                        <div id="chat-box" style="flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background: #fdfdfd;">
                         </div>
-                        <div class="chat-input-area" style="display: flex; padding: 8px; border-top: 1px solid #ddd; background: #fafafa;">
-                            <input type="text" id="chat-input" placeholder="Nhập tin..." style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; outline: none; font-size: 13px;" onkeypress="if(event.key === 'Enter') sendMessage()">
-                            <button onclick="sendMessage()" style="margin-left: 5px; padding: 8px 12px; background: #ee4d2d; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Gửi</button>
+                        <div style="display: flex; padding: 10px; border-top: 1px solid #eee; background: white;">
+                            <input type="text" id="chat-input" placeholder="Nhập tin nhắn..." style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 20px; outline: none; font-size: 13px;" onkeypress="if(event.key === 'Enter') sendMessage()">
+                            <button onclick="sendMessage()" style="margin-left: 8px; padding: 10px 15px; background: #ee4d2d; color: white; border: none; border-radius: 50%; cursor: pointer;">➤</button>
                         </div>
                     </div>
                 </div>
@@ -114,21 +137,19 @@
         </div>
     </main>
 
+    <!-- FORM ĐĂNG BÁN -->
     <div id="post-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 1000;">
         <div style="background: white; padding: 30px; border-radius: 8px; width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
             <h2 style="margin-top: 0; color: #ee4d2d; border-bottom: 2px solid #eee; padding-bottom: 10px;">Đăng bán sản phẩm</h2>
-            
             <input type="text" id="post-name" placeholder="Tên sản phẩm/dịch vụ..." style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
             <input type="number" id="post-price" placeholder="Giá tiền (VNĐ)..." style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
             <textarea id="post-description" placeholder="Mô tả chi tiết..." style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; resize: vertical; min-height: 80px; font-family: inherit;"></textarea>
-            
             <select id="post-category" style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
                 <option value="tai-lieu">📚 Tài liệu học tập</option>
                 <option value="tro">🏠 Phòng trọ</option>
                 <option value="viec-lam">💼 Việc làm thêm</option>
             </select>
             <input type="text" id="post-image" placeholder="Link ảnh (bỏ trống cũng được)..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
-            
             <div style="display: flex; gap: 10px;">
                 <button onclick="document.getElementById('post-modal').style.display='none'" style="flex: 1; padding: 10px; background: #ddd; color: #333; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Hủy</button>
                 <button onclick="submitProduct()" style="flex: 1; padding: 10px; background: #ee4d2d; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Đăng Ngay</button>
